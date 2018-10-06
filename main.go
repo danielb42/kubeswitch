@@ -1,8 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
+	yaml "gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type context struct {
@@ -10,39 +18,66 @@ type context struct {
 	namespace string
 }
 
-func getClusters() []string {
-	return []string{"cluster1", "cluster2", "cluster3"}
+type kubeconf struct {
+	Contexts []struct {
+		Name string `json:"name"`
+	} `json:"contexts"`
 }
 
-func getNamespaces(cluster string) []string {
-	switch cluster {
-	case "cluster1":
-		return []string{"namespace1", "namespace2"}
-	case "cluster2":
-		return []string{"namespace1", "namespace2", "namespace3", "namespace4"}
-	case "cluster3":
-		return []string{"namespace1", "namespace2", "namespace3", "namespace4", "namespace5"}
-	case "cluster4":
-		return []string{"namespace1", "namespace2", "namespace3"}
+func getNamespaces(context string) []string {
+	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: os.Getenv("KUBECONFIG")},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: context,
+		}).ClientConfig()
+
+	clientset, _ := kubernetes.NewForConfig(config)
+	namespaces, _ := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
+
+	var slc []string
+	for _, namespace := range namespaces.Items {
+		slc = append(slc, namespace.Name)
 	}
-	return []string{}
+
+	return slc
 }
 
 func switchContext(ctx context) {
-	println("switch to cluster "+ctx.cluster+", namespace", ctx.namespace)
+	fmt.Printf("kubectl config set-context %v --namespace=%v &>/dev/null \n", ctx.cluster, ctx.namespace)
+}
+
+func getContexts() []string {
+	configContent, _ := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
+	var kubeconfig kubeconf
+	yaml.Unmarshal(configContent, &kubeconfig)
+
+	var slc []string
+	for _, context := range kubeconfig.Contexts {
+		slc = append(slc, context.Name)
+	}
+
+	return slc
 }
 
 func main() {
-	root := tview.NewTreeNode(".")
+	nodeRoot := tview.NewTreeNode(".")
 
-	for _, cluster := range getClusters() {
+	for _, cluster := range getContexts() {
 		nodeCluster := tview.NewTreeNode(cluster).
-			SetSelectable(false).
-			SetColor(tcell.ColorTurquoise)
+			SetSelectable(false)
 
-		root.AddChild(nodeCluster)
+		namespacesHere := getNamespaces(cluster)
 
-		for _, namespace := range getNamespaces(cluster) {
+		if len(namespacesHere) > 0 {
+			nodeCluster.SetColor(tcell.ColorTurquoise)
+		} else {
+			nodeCluster.SetColor(tcell.ColorRed).
+				SetText(cluster + " (unreachable)")
+		}
+
+		nodeRoot.AddChild(nodeCluster)
+
+		for _, namespace := range namespacesHere {
 			nodeNS := tview.NewTreeNode(namespace).
 				SetReference(context{cluster, namespace})
 
@@ -52,8 +87,8 @@ func main() {
 
 	app := tview.NewApplication()
 	tree := tview.NewTreeView().
-		SetRoot(root).
-		SetCurrentNode(root).
+		SetRoot(nodeRoot).
+		SetCurrentNode(nodeRoot).
 		SetTopLevel(1).
 		SetSelectedFunc(func(node *tview.TreeNode) {
 			app.Stop()
