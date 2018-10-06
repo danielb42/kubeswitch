@@ -19,10 +19,17 @@ type context struct {
 }
 
 type kubeconf struct {
-	Contexts []struct {
-		Name string `json:"name"`
+	CurrentContextName      string `json:"current-context"`
+	currentContextCluster   string
+	currentContextNamespace string
+	Contexts                []struct {
+		Name      string `json:"name"`
+		Cluster   string `json:"context.cluster"`
+		Namespace string `json:"context.namespace"`
 	} `json:"contexts"`
 }
+
+var kubeconfig kubeconf
 
 func getNamespaces(context string) []string {
 	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
@@ -43,24 +50,30 @@ func getNamespaces(context string) []string {
 }
 
 func switchContext(ctx context) {
+	// TODO: really switch context
 	fmt.Printf("kubectl config set-context %v --namespace=%v &>/dev/null \n", ctx.cluster, ctx.namespace)
 }
 
 func getContexts() []string {
-	configContent, _ := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
-	var kubeconfig kubeconf
-	yaml.Unmarshal(configContent, &kubeconfig)
-
 	var slc []string
 	for _, context := range kubeconfig.Contexts {
 		slc = append(slc, context.Name)
+
+		if context.Name == kubeconfig.CurrentContextName {
+			kubeconfig.currentContextCluster = context.Cluster
+			kubeconfig.currentContextNamespace = context.Namespace
+		}
 	}
 
 	return slc
 }
 
 func main() {
+	configContent, _ := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
+	yaml.Unmarshal(configContent, &kubeconfig)
+
 	nodeRoot := tview.NewTreeNode(".")
+	var highlightNode *tview.TreeNode
 
 	for _, cluster := range getContexts() {
 		nodeCluster := tview.NewTreeNode(cluster).
@@ -78,8 +91,14 @@ func main() {
 		nodeRoot.AddChild(nodeCluster)
 
 		for _, namespace := range namespacesHere {
-			nodeNS := tview.NewTreeNode(namespace).
-				SetReference(context{cluster, namespace})
+
+			nodeNS := tview.NewTreeNode(namespace).SetReference(context{cluster, namespace})
+
+			if cluster == kubeconfig.currentContextCluster &&
+				namespace == kubeconfig.currentContextNamespace {
+				nodeNS.SetColor(tcell.ColorGreen)
+				highlightNode = nodeNS
+			}
 
 			nodeCluster.AddChild(nodeNS)
 		}
@@ -88,7 +107,7 @@ func main() {
 	app := tview.NewApplication()
 	tree := tview.NewTreeView().
 		SetRoot(nodeRoot).
-		SetCurrentNode(nodeRoot).
+		SetCurrentNode(highlightNode).
 		SetTopLevel(1).
 		SetSelectedFunc(func(node *tview.TreeNode) {
 			app.Stop()
