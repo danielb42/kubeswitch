@@ -13,37 +13,38 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+type config struct {
+	CurrentContextName string `yaml:"current-context"`
+	Contexts           []struct {
+		Name    string
+		Context context
+	}
+}
+
 type context struct {
-	cluster   string
-	namespace string
+	Cluster   string
+	Namespace string
 }
 
-type kubeconf struct {
-	CurrentContextName      string `json:"current-context"`
-	currentContextCluster   string
-	currentContextNamespace string
-	Contexts                []struct {
-		Name      string `json:"name"`
-		Cluster   string `json:"context.cluster"`
-		Namespace string `json:"context.namespace"`
-	} `json:"contexts"`
-}
-
-var kubeconfig kubeconf
+var (
+	kubeconfig     config
+	currentContext context
+)
 
 func getNamespaces(context string) []string {
 	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: os.Getenv("KUBECONFIG")},
+		&clientcmd.ClientConfigLoadingRules{
+			ExplicitPath: os.Getenv("KUBECONFIG")},
 		&clientcmd.ConfigOverrides{
-			CurrentContext: context,
-		}).ClientConfig()
+			CurrentContext: context}).
+		ClientConfig()
 
 	clientset, _ := kubernetes.NewForConfig(config)
 	namespaces, _ := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
 
 	var slc []string
-	for _, namespace := range namespaces.Items {
-		slc = append(slc, namespace.Name)
+	for _, thisNamespace := range namespaces.Items {
+		slc = append(slc, thisNamespace.Name)
 	}
 
 	return slc
@@ -51,17 +52,17 @@ func getNamespaces(context string) []string {
 
 func switchContext(ctx context) {
 	// TODO: really switch context
-	fmt.Printf("kubectl config set-context %v --namespace=%v &>/dev/null \n", ctx.cluster, ctx.namespace)
+	fmt.Printf("kubectl config set-context %v --namespace=%v &>/dev/null \n", ctx.Cluster, ctx.Namespace)
 }
 
-func getContexts() []string {
+func getContextNames() []string {
 	var slc []string
-	for _, context := range kubeconfig.Contexts {
-		slc = append(slc, context.Name)
+	for _, thisContext := range kubeconfig.Contexts {
+		slc = append(slc, thisContext.Name)
 
-		if context.Name == kubeconfig.CurrentContextName {
-			kubeconfig.currentContextCluster = context.Cluster
-			kubeconfig.currentContextNamespace = context.Namespace
+		if thisContext.Name == kubeconfig.CurrentContextName {
+			currentContext.Cluster = thisContext.Context.Cluster
+			currentContext.Namespace = thisContext.Context.Namespace
 		}
 	}
 
@@ -75,32 +76,34 @@ func main() {
 	nodeRoot := tview.NewTreeNode(".")
 	var highlightNode *tview.TreeNode
 
-	for _, cluster := range getContexts() {
-		nodeCluster := tview.NewTreeNode(cluster).
+	for _, thisContextName := range getContextNames() {
+		nodeCluster := tview.NewTreeNode(thisContextName).
 			SetSelectable(false)
 
-		namespacesHere := getNamespaces(cluster)
+		namespacesHere := getNamespaces(thisContextName)
 
 		if len(namespacesHere) > 0 {
 			nodeCluster.SetColor(tcell.ColorTurquoise)
 		} else {
 			nodeCluster.SetColor(tcell.ColorRed).
-				SetText(cluster + " (unreachable)")
+				SetText(thisContextName + " (unreachable)")
 		}
 
 		nodeRoot.AddChild(nodeCluster)
 
-		for _, namespace := range namespacesHere {
+		for _, thisNamespace := range namespacesHere {
 
-			nodeNS := tview.NewTreeNode(namespace).SetReference(context{cluster, namespace})
+			nodeNamespace := tview.NewTreeNode(thisNamespace).
+				SetReference(context{thisContextName, thisNamespace})
 
-			if cluster == kubeconfig.currentContextCluster &&
-				namespace == kubeconfig.currentContextNamespace {
-				nodeNS.SetColor(tcell.ColorGreen)
-				highlightNode = nodeNS
+			if thisContextName == currentContext.Cluster &&
+				thisNamespace == currentContext.Namespace {
+				nodeCluster.SetColor(tcell.ColorGreen)
+				nodeNamespace.SetColor(tcell.ColorGreen)
+				highlightNode = nodeNamespace
 			}
 
-			nodeCluster.AddChild(nodeNS)
+			nodeCluster.AddChild(nodeNamespace)
 		}
 	}
 
