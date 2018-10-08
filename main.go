@@ -24,9 +24,9 @@ type config struct {
 	}
 }
 
-type twostrings struct {
-	a string
-	b string
+type referenceHelper struct {
+	context   string
+	namespace string
 }
 
 var kubeconfig config
@@ -85,7 +85,7 @@ func main() {
 		for _, thisNamespace := range namespacesInThisContextsCluster {
 
 			nodeNamespace := tview.NewTreeNode(thisNamespace.Name).
-				SetReference(twostrings{thisContext.Name, thisNamespace.Name})
+				SetReference(referenceHelper{thisContext.Name, thisNamespace.Name})
 
 			if thisContext.Name == kubeconfig.ActiveContext &&
 				thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
@@ -104,7 +104,7 @@ func main() {
 		SetTopLevel(1).
 		SetSelectedFunc(func(node *tview.TreeNode) {
 			app.Stop()
-			switchContext(node.GetReference().(twostrings))
+			switchContext(node.GetReference().(referenceHelper))
 		})
 
 	app.SetRoot(tree, true).Run()
