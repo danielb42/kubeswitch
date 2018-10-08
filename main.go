@@ -8,30 +8,30 @@ import (
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 	yaml "gopkg.in/yaml.v2"
+	k8s "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type config struct {
-	CurrentContextName string `yaml:"current-context"`
-	Contexts           []struct {
-		Name    string
-		Context context
+	ActiveContext string `yaml:"current-context"`
+	Contexts      []struct {
+		Name       string `yaml:"name"`
+		Attributes struct {
+			ActiveNamespace string `yaml:"namespace"`
+		} `yaml:"context"`
 	}
 }
 
-type context struct {
-	Cluster   string
-	Namespace string
+type twostrings struct {
+	a string
+	b string
 }
 
-var (
-	kubeconfig     config
-	currentContext context
-)
+var kubeconfig config
 
-func getNamespaces(context string) []string {
+func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{
 			ExplicitPath: os.Getenv("KUBECONFIG")},
@@ -42,68 +42,56 @@ func getNamespaces(context string) []string {
 	clientset, _ := kubernetes.NewForConfig(config)
 	namespaces, _ := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
 
-	var slc []string
-	for _, thisNamespace := range namespaces.Items {
-		slc = append(slc, thisNamespace.Name)
-	}
-
-	return slc
+	return namespaces.Items
 }
 
-func switchContext(ctx context) {
+func switchContext(ts twostrings) {
 	// TODO: really switch context
-	fmt.Printf("kubectl config set-context %v --namespace=%v &>/dev/null \n", ctx.Cluster, ctx.Namespace)
+	fmt.Printf(
+		"kubectl config set-context %v --namespace=%v &>/dev/null \n",
+		ts.a,
+		ts.b)
 }
 
-func getContextNames() []string {
-	var slc []string
-	for _, thisContext := range kubeconfig.Contexts {
-		slc = append(slc, thisContext.Name)
-
-		if thisContext.Name == kubeconfig.CurrentContextName {
-			currentContext.Cluster = thisContext.Context.Cluster
-			currentContext.Namespace = thisContext.Context.Namespace
-		}
-	}
-
-	return slc
+func loadConfig() {
+	configContent, _ := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
+	yaml.Unmarshal(configContent, &kubeconfig)
 }
 
 func main() {
-	configContent, _ := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
-	yaml.Unmarshal(configContent, &kubeconfig)
+	loadConfig()
 
 	nodeRoot := tview.NewTreeNode(".")
-	var highlightNode *tview.TreeNode
+	highlightNode := nodeRoot
 
-	for _, thisContextName := range getContextNames() {
-		nodeCluster := tview.NewTreeNode(thisContextName).
+	for _, thisContext := range kubeconfig.Contexts {
+		nodeContextName := tview.NewTreeNode(thisContext.Name).
 			SetSelectable(false)
 
-		namespacesHere := getNamespaces(thisContextName)
+		namespacesInThisContextsCluster := getNamespacesInContextsCluster(thisContext.Name)
 
-		if len(namespacesHere) > 0 {
-			nodeCluster.SetColor(tcell.ColorTurquoise)
+		if len(namespacesInThisContextsCluster) > 0 {
+			nodeContextName.SetColor(tcell.ColorTurquoise)
 		} else {
-			nodeCluster.SetColor(tcell.ColorRed).
-				SetText(thisContextName + " (unreachable)")
+			nodeContextName.SetColor(tcell.ColorRed).
+				SetText(thisContext.Name + " (unreachable)")
 		}
 
-		nodeRoot.AddChild(nodeCluster)
+		nodeRoot.AddChild(nodeContextName)
 
-		for _, thisNamespace := range namespacesHere {
+		for _, thisNamespace := range namespacesInThisContextsCluster {
 
-			nodeNamespace := tview.NewTreeNode(thisNamespace).
-				SetReference(context{thisContextName, thisNamespace})
+			nodeNamespace := tview.NewTreeNode(thisNamespace.Name).
+				SetReference(twostrings{thisContext.Name, thisNamespace.Name})
 
-			if thisContextName == currentContext.Cluster &&
-				thisNamespace == currentContext.Namespace {
-				nodeCluster.SetColor(tcell.ColorGreen)
+			if thisContext.Name == kubeconfig.ActiveContext &&
+				thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
+				nodeContextName.SetColor(tcell.ColorGreen)
 				nodeNamespace.SetColor(tcell.ColorGreen)
 				highlightNode = nodeNamespace
 			}
 
-			nodeCluster.AddChild(nodeNamespace)
+			nodeContextName.AddChild(nodeNamespace)
 		}
 	}
 
@@ -114,7 +102,7 @@ func main() {
 		SetTopLevel(1).
 		SetSelectedFunc(func(node *tview.TreeNode) {
 			app.Stop()
-			switchContext(node.GetReference().(context))
+			switchContext(node.GetReference().(twostrings))
 		})
 
 	app.SetRoot(tree, true).Run()
