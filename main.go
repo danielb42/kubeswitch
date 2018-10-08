@@ -70,11 +70,14 @@ func main() {
 
 		namespacesInThisContextsCluster := getNamespacesInContextsCluster(thisContext.Name)
 
-		if len(namespacesInThisContextsCluster) > 0 {
-			nodeContextName.SetColor(tcell.ColorTurquoise)
-		} else {
+		if len(namespacesInThisContextsCluster) == 0 {
 			nodeContextName.SetColor(tcell.ColorRed).
 				SetText(thisContext.Name + " (unreachable)")
+		} else if thisContext.Name == kubeconfig.ActiveContext {
+			nodeContextName.SetColor(tcell.ColorGreen).
+				SetText(thisContext.Name + " (active)")
+		} else {
+			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
 
 		nodeRoot.AddChild(nodeContextName)
@@ -86,7 +89,6 @@ func main() {
 
 			if thisContext.Name == kubeconfig.ActiveContext &&
 				thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
-				nodeContextName.SetColor(tcell.ColorGreen)
 				nodeNamespace.SetColor(tcell.ColorGreen)
 				highlightNode = nodeNamespace
 			}
