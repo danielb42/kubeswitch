@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -45,12 +44,19 @@ func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 	return namespaces.Items
 }
 
-func switchContext(ts twostrings) {
-	// TODO: really switch context
-	fmt.Printf(
-		"kubectl config set-context %v --namespace=%v &>/dev/null \n",
-		ts.a,
-		ts.b)
+func switchContext(rh referenceHelper) {
+	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{
+			ExplicitPath: os.Getenv("KUBECONFIG")},
+		&clientcmd.ConfigOverrides{}).
+		RawConfig()
+
+	config.CurrentContext = rh.context
+	config.Contexts[rh.context].Namespace = rh.namespace
+	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
+	clientcmd.ModifyConfig(configAccess, config, false)
+
+	println("switched to", rh.context, rh.namespace)
 }
 
 func loadConfig() {
