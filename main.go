@@ -38,7 +38,7 @@ func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 			CurrentContext: context}).
 		ClientConfig()
 
-	config.Timeout = 250 * time.Millisecond
+	config.Timeout = 500 * time.Millisecond
 
 	clientset, _ := kubernetes.NewForConfig(config)
 	namespaces, _ := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
