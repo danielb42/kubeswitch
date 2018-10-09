@@ -2,7 +2,11 @@ package main
 
 import (
 	"io/ioutil"
+	"log"
+	"net/url"
 	"os"
+	"reflect"
+	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -31,39 +35,65 @@ type referenceHelper struct {
 var kubeconfig config
 
 func getNamespacesInContextsCluster(context string) []k8s.Namespace {
-	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{
 			ExplicitPath: os.Getenv("KUBECONFIG")},
 		&clientcmd.ConfigOverrides{
 			CurrentContext: context}).
 		ClientConfig()
+	if err != nil {
+		if reflect.TypeOf(err).String() != "clientcmd.errConfigurationInvalid" {
+			log.Fatalln(err)
+		}
+		return []k8s.Namespace{}
+	}
 
 	config.Timeout = 500 * time.Millisecond
 
-	clientset, _ := kubernetes.NewForConfig(config)
-	namespaces, _ := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
+	if err != nil {
+		if _, urlError := err.(*url.Error); !urlError {
+			log.Fatalln(err)
+		}
+	}
 
 	return namespaces.Items
 }
 
 func switchContext(rh referenceHelper) {
-	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{
 			ExplicitPath: os.Getenv("KUBECONFIG")},
 		&clientcmd.ConfigOverrides{}).
 		RawConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	config.CurrentContext = rh.context
 	config.Contexts[rh.context].Namespace = rh.namespace
 	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-	clientcmd.ModifyConfig(configAccess, config, false)
+	if err := clientcmd.ModifyConfig(configAccess, config, false); err != nil {
+		log.Fatalln(err)
+	}
 
-	println("switched to", rh.context, rh.namespace)
+	log.Printf("switched to %s/%s", rh.context, rh.namespace)
 }
 
 func loadConfig() {
-	configContent, _ := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
-	yaml.Unmarshal(configContent, &kubeconfig)
+	configContent, err := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := yaml.Unmarshal(configContent, &kubeconfig); err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func main() {
@@ -115,5 +145,7 @@ func main() {
 			switchContext(node.GetReference().(referenceHelper))
 		})
 
-	app.SetRoot(tree, true).Run()
+	if err := app.SetRoot(tree, true).Run(); err != nil {
+		log.Fatalln(err)
+	}
 }
