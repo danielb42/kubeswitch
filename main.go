@@ -24,6 +24,7 @@ type config struct {
 		Attributes struct {
 			ActiveNamespace string `yaml:"namespace"`
 		} `yaml:"context"`
+	} `yaml:"contexts"`
 	}
 }
 
