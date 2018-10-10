@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"reflect"
 	"time"
@@ -25,7 +25,6 @@ type config struct {
 			ActiveNamespace string `yaml:"namespace"`
 		} `yaml:"context"`
 	} `yaml:"contexts"`
-	}
 }
 
 type referenceHelper struct {
@@ -42,11 +41,13 @@ func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 		&clientcmd.ConfigOverrides{
 			CurrentContext: context}).
 		ClientConfig()
+
 	if err != nil {
-		if reflect.TypeOf(err).String() != "clientcmd.errConfigurationInvalid" {
-			log.Fatalln(err)
+		if reflect.TypeOf(err).String() == "clientcmd.errConfigurationInvalid" {
+			return []k8s.Namespace{}
 		}
-		return []k8s.Namespace{}
+
+		log.Fatalln(err)
 	}
 
 	config.Timeout = 500 * time.Millisecond
@@ -58,9 +59,11 @@ func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 
 	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
 	if err != nil {
-		if _, urlError := err.(*url.Error); !urlError {
-			log.Fatalln(err)
+		if reflect.TypeOf(err).String() == "*url.Error" {
+			return []k8s.Namespace{}
 		}
+
+		log.Fatalln(err)
 	}
 
 	return namespaces.Items
@@ -72,6 +75,7 @@ func switchContext(rh referenceHelper) {
 			ExplicitPath: os.Getenv("KUBECONFIG")},
 		&clientcmd.ConfigOverrides{}).
 		RawConfig()
+
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -79,6 +83,7 @@ func switchContext(rh referenceHelper) {
 	config.CurrentContext = rh.context
 	config.Contexts[rh.context].Namespace = rh.namespace
 	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
+
 	if err := clientcmd.ModifyConfig(configAccess, config, false); err != nil {
 		log.Fatalln(err)
 	}
@@ -90,6 +95,10 @@ func loadConfig() {
 	configContent, err := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
 	if err != nil {
 		log.Fatalln(err)
+	}
+
+	if len(configContent) == 0 {
+		log.Fatalln(errors.New("empty configuration file"))
 	}
 
 	if err := yaml.Unmarshal(configContent, &kubeconfig); err != nil {
@@ -122,7 +131,6 @@ func main() {
 		nodeRoot.AddChild(nodeContextName)
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
-
 			nodeNamespace := tview.NewTreeNode(thisNamespace.Name).
 				SetReference(referenceHelper{thisContext.Name, thisNamespace.Name})
 
