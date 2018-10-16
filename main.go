@@ -115,29 +115,39 @@ func loadConfig() {
 func main() {
 	loadConfig()
 
-	nodeRoot := tview.NewTreeNode(".")
+	app := tview.NewApplication()
+	openNode := new(tview.TreeNode)
+
+	nodeRoot := tview.NewTreeNode("Contexts")
 	highlightNode := nodeRoot
 
 	for _, thisContext := range kubeconfig.Contexts {
-		nodeContextName := tview.NewTreeNode(thisContext.Name).
-			SetSelectable(false)
+		nodeContextName := tview.NewTreeNode(" " + thisContext.Name).
+			SetSelectable(true)
 
 		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext.Name)
 
 		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(thisContext.Name + " (" + err.Error() + ")")
+				SetText(" " + thisContext.Name + " (" + err.Error() + ")")
 		} else if thisContext.Name == kubeconfig.ActiveContext {
 			nodeContextName.SetColor(tcell.ColorGreen).
-				SetText(thisContext.Name + " (active)")
+				SetText(" " + thisContext.Name + " (active)")
 		} else {
 			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
-
+		nodeContextName.Collapse()
+		nodeContextName.SetSelectedFunc(func() {
+			nodeContextName.SetExpanded(!nodeContextName.IsExpanded())
+			if nodeContextName.IsExpanded() && openNode != nodeContextName {
+				openNode.SetExpanded(false)
+				openNode = nodeContextName
+			}
+		})
 		nodeRoot.AddChild(nodeContextName)
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
-			nodeNamespace := tview.NewTreeNode(thisNamespace.Name).
+			nodeNamespace := tview.NewTreeNode(" " + thisNamespace.Name).
 				SetReference(referenceHelper{thisContext.Name, thisNamespace.Name})
 
 			if thisContext.Name == kubeconfig.ActiveContext &&
@@ -146,20 +156,17 @@ func main() {
 				highlightNode = nodeNamespace
 			}
 
+			nodeNamespace.SetSelectedFunc(func() {
+				app.Stop()
+				switchContext(nodeNamespace.GetReference().(referenceHelper))
+			})
 			nodeContextName.AddChild(nodeNamespace)
 		}
 	}
-
-	app := tview.NewApplication()
 	tree := tview.NewTreeView().
 		SetRoot(nodeRoot).
 		SetCurrentNode(highlightNode).
-		SetTopLevel(1).
-		SetSelectedFunc(func(node *tview.TreeNode) {
-			app.Stop()
-			switchContext(node.GetReference().(referenceHelper))
-		})
-
+		SetTopLevel(0)
 	if err := app.SetRoot(tree, true).Run(); err != nil {
 		log.Fatalln(err)
 	}
