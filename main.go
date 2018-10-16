@@ -118,7 +118,9 @@ func main() {
 	app := tview.NewApplication()
 	openNode := new(tview.TreeNode)
 
-	nodeRoot := tview.NewTreeNode("Contexts")
+	nodeRoot := tview.NewTreeNode("Contexts").
+		SetSelectable(false)
+
 	highlightNode := nodeRoot
 
 	for _, thisContext := range kubeconfig.Contexts {
@@ -127,7 +129,8 @@ func main() {
 		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext.Name)
 		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(" " + thisContext.Name + " (" + err.Error() + ")")
+				SetText(" " + thisContext.Name + " (" + err.Error() + ")").
+				SetSelectable(false)
 		} else if thisContext.Name == kubeconfig.ActiveContext {
 			nodeContextName.SetColor(tcell.ColorGreen).
 				SetText(" " + thisContext.Name + " (active)")
