@@ -68,7 +68,7 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 		case *apierrors.StatusError:
 			return []k8s.Namespace{}, fmt.Errorf(err.(*apierrors.StatusError).ErrStatus.Message)
 		default:
-			return []k8s.Namespace{}, fmt.Errorf(reflect.TypeOf(err).String())
+			return []k8s.Namespace{}, fmt.Errorf("error")
 		}
 	}
 
