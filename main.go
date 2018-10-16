@@ -47,7 +47,7 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 
 	if err != nil {
 		if reflect.TypeOf(err).String() == "clientcmd.errConfigurationInvalid" {
-			return []k8s.Namespace{}, err
+			return []k8s.Namespace{}, fmt.Errorf("error in config file")
 		}
 
 		log.Fatalln(err)
@@ -64,9 +64,9 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 	if err != nil {
 		switch err.(type) {
 		case *url.Error:
-			return []k8s.Namespace{}, fmt.Errorf("Unreachable")
+			return []k8s.Namespace{}, fmt.Errorf("unreachable")
 		case *apierrors.StatusError:
-			return []k8s.Namespace{}, fmt.Errorf(err.(*apierrors.StatusError).ErrStatus.Message)
+			return []k8s.Namespace{}, fmt.Errorf("error from api: " + err.(*apierrors.StatusError).Error())
 		default:
 			return []k8s.Namespace{}, fmt.Errorf("error")
 		}
