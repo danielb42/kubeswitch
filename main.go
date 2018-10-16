@@ -122,11 +122,9 @@ func main() {
 	highlightNode := nodeRoot
 
 	for _, thisContext := range kubeconfig.Contexts {
-		nodeContextName := tview.NewTreeNode(" " + thisContext.Name).
-			SetSelectable(true)
+		nodeContextName := tview.NewTreeNode(" " + thisContext.Name)
 
 		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext.Name)
-
 		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
 				SetText(" " + thisContext.Name + " (" + err.Error() + ")")
@@ -136,6 +134,7 @@ func main() {
 		} else {
 			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
+
 		nodeContextName.Collapse()
 		nodeContextName.SetSelectedFunc(func() {
 			nodeContextName.SetExpanded(!nodeContextName.IsExpanded())
@@ -144,6 +143,7 @@ func main() {
 				openNode = nodeContextName
 			}
 		})
+
 		nodeRoot.AddChild(nodeContextName)
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
@@ -160,13 +160,16 @@ func main() {
 				app.Stop()
 				switchContext(nodeNamespace.GetReference().(referenceHelper))
 			})
+
 			nodeContextName.AddChild(nodeNamespace)
 		}
+
 	}
+
 	tree := tview.NewTreeView().
 		SetRoot(nodeRoot).
-		SetCurrentNode(highlightNode).
-		SetTopLevel(0)
+		SetCurrentNode(highlightNode)
+
 	if err := app.SetRoot(tree, true).Run(); err != nil {
 		log.Fatalln(err)
 	}
