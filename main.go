@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"reflect"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/rivo/tview"
 	yaml "gopkg.in/yaml.v2"
 	k8s "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -34,7 +37,7 @@ type referenceHelper struct {
 
 var kubeconfig config
 
-func getNamespacesInContextsCluster(context string) []k8s.Namespace {
+func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{
 			ExplicitPath: os.Getenv("KUBECONFIG")},
@@ -44,7 +47,7 @@ func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 
 	if err != nil {
 		if reflect.TypeOf(err).String() == "clientcmd.errConfigurationInvalid" {
-			return []k8s.Namespace{}
+			return []k8s.Namespace{}, err
 		}
 
 		log.Fatalln(err)
@@ -59,14 +62,17 @@ func getNamespacesInContextsCluster(context string) []k8s.Namespace {
 
 	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
 	if err != nil {
-		if reflect.TypeOf(err).String() == "*url.Error" {
-			return []k8s.Namespace{}
+		switch err.(type) {
+		case *url.Error:
+			return []k8s.Namespace{}, fmt.Errorf("Unreachable")
+		case *apierrors.StatusError:
+			return []k8s.Namespace{}, fmt.Errorf(err.(*apierrors.StatusError).ErrStatus.Message)
+		default:
+			return []k8s.Namespace{}, fmt.Errorf(reflect.TypeOf(err).String())
 		}
-
-		log.Fatalln(err)
 	}
 
-	return namespaces.Items
+	return namespaces.Items, nil
 }
 
 func switchContext(rh referenceHelper) {
@@ -116,11 +122,11 @@ func main() {
 		nodeContextName := tview.NewTreeNode(thisContext.Name).
 			SetSelectable(false)
 
-		namespacesInThisContextsCluster := getNamespacesInContextsCluster(thisContext.Name)
+		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext.Name)
 
-		if len(namespacesInThisContextsCluster) == 0 {
+		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(thisContext.Name + " (unreachable)")
+				SetText(thisContext.Name + " (" + err.Error() + ")")
 		} else if thisContext.Name == kubeconfig.ActiveContext {
 			nodeContextName.SetColor(tcell.ColorGreen).
 				SetText(thisContext.Name + " (active)")
