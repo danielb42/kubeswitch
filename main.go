@@ -116,11 +116,11 @@ func main() {
 	loadConfig()
 
 	app := tview.NewApplication()
-	openNode := new(tview.TreeNode)
 
 	nodeRoot := tview.NewTreeNode("Contexts").
 		SetSelectable(false)
 
+	expandedNode := new(tview.TreeNode)
 	highlightNode := nodeRoot
 
 	for _, thisContext := range kubeconfig.Contexts {
@@ -141,9 +141,9 @@ func main() {
 		nodeContextName.Collapse()
 		nodeContextName.SetSelectedFunc(func() {
 			nodeContextName.SetExpanded(!nodeContextName.IsExpanded())
-			if nodeContextName.IsExpanded() && openNode != nodeContextName {
-				openNode.SetExpanded(false)
-				openNode = nodeContextName
+			if nodeContextName.IsExpanded() && expandedNode != nodeContextName {
+				expandedNode.SetExpanded(false)
+				expandedNode = nodeContextName
 			}
 		})
 
@@ -155,6 +155,8 @@ func main() {
 
 			if thisContext.Name == kubeconfig.ActiveContext &&
 				thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
+				nodeContextName.SetExpanded(true)
+				expandedNode = nodeContextName
 				nodeNamespace.SetColor(tcell.ColorGreen)
 				highlightNode = nodeNamespace
 			}
