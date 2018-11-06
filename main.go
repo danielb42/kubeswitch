@@ -143,7 +143,7 @@ func main() {
 			nodeContextName.SetExpanded(!nodeContextName.IsExpanded())
 
 			if nodeContextName.IsExpanded() && expandedNode != nodeContextName {
-				expandedNode.SetExpanded(false)
+				expandedNode.Collapse()
 				expandedNode = nodeContextName
 			}
 		})
@@ -155,7 +155,7 @@ func main() {
 				SetReference(referenceHelper{thisContext.Name, thisNamespace.Name})
 
 			if thisContext.Name == kubeconfig.ActiveContext {
-				nodeContextName.SetExpanded(true)
+				nodeContextName.Expand()
 				expandedNode = nodeContextName
 
 				if thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
