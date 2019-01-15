@@ -112,8 +112,28 @@ func loadConfig() {
 	}
 }
 
+func quickSwitch() {
+	if len(os.Args) == 2 {
+		switchContext(referenceHelper{kubeconfig.ActiveContext, os.Args[1]})
+		os.Exit(0)
+	}
+
+	if len(os.Args) == 3 {
+		for _, ctx := range kubeconfig.Contexts {
+			if os.Args[1] == ctx.Name {
+				switchContext(referenceHelper{os.Args[1], os.Args[2]})
+				os.Exit(0)
+			}
+		}
+	}
+}
+
 func main() {
 	loadConfig()
+
+	if len(os.Args) > 1 {
+		quickSwitch()
+	}
 
 	app := tview.NewApplication()
 
