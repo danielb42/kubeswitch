@@ -13,6 +13,8 @@ Switch your current kubernetes context and namespace graphically by selecting fr
 The location of your `kube.conf` is read from environment variable `KUBECONFIG`.
 
 ## Run
-Just run `kubeswitch` and select your desired context/namespace.  
-Alternatively, run `kubeswitch <namespace>` to switch to namespace in current context quickly.  
-Run `kubeswitch <context> <namespace>` to switch to context/namespace.
+| Run... | to... |
+|-|-|
+| `kubeswitch` | select context/namespace graphically |  
+| `kubeswitch <namespace>` | switch to namespace in current context quickly |  
+| `kubeswitch <context> <namespace>`<br>`kubeswitch <context>/<namespace>` | switch to context/namespace |
