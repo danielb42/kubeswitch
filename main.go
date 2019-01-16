@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell"
@@ -113,19 +114,36 @@ func loadConfig() {
 }
 
 func quickSwitch() {
-	if len(os.Args) == 2 {
+	if len(os.Args) == 1 {
+		return
+	}
+
+	s := strings.Split(os.Args[1], "/")
+
+	if len(os.Args) == 2 && len(s) == 1 {
 		switchContext(referenceHelper{kubeconfig.ActiveContext, os.Args[1]})
 		os.Exit(0)
 	}
 
-	if len(os.Args) == 3 {
-		for _, ctx := range kubeconfig.Contexts {
-			if os.Args[1] == ctx.Name {
-				switchContext(referenceHelper{os.Args[1], os.Args[2]})
-				os.Exit(0)
-			}
+	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) {
+		switchContext(referenceHelper{s[0], s[1]})
+		os.Exit(0)
+	}
+
+	if len(os.Args) == 3 && contextExists(os.Args[1]) {
+		switchContext(referenceHelper{os.Args[1], os.Args[2]})
+		os.Exit(0)
+	}
+}
+
+func contextExists(context string) bool {
+	for _, ctx := range kubeconfig.Contexts {
+		if context == ctx.Name {
+			return true
 		}
 	}
+
+	return false
 }
 
 func main() {
