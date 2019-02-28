@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell"
@@ -15,7 +16,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	k8s "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -47,7 +48,7 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 
 	if err != nil {
 		if reflect.TypeOf(err).String() == "clientcmd.errConfigurationInvalid" {
-			return []k8s.Namespace{}, err
+			return []k8s.Namespace{}, fmt.Errorf("error in config file")
 		}
 
 		log.Fatalln(err)
@@ -64,11 +65,11 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 	if err != nil {
 		switch err.(type) {
 		case *url.Error:
-			return []k8s.Namespace{}, fmt.Errorf("Unreachable")
+			return []k8s.Namespace{}, fmt.Errorf("unreachable")
 		case *apierrors.StatusError:
-			return []k8s.Namespace{}, fmt.Errorf(err.(*apierrors.StatusError).ErrStatus.Message)
+			return []k8s.Namespace{}, fmt.Errorf("error from api: " + err.(*apierrors.StatusError).Error())
 		default:
-			return []k8s.Namespace{}, fmt.Errorf(reflect.TypeOf(err).String())
+			return []k8s.Namespace{}, fmt.Errorf("error")
 		}
 	}
 
@@ -112,48 +113,93 @@ func loadConfig() {
 	}
 }
 
+func quickSwitch() {
+	if len(os.Args) == 1 {
+		return
+	}
+
+	s := strings.Split(os.Args[1], "/")
+
+	if len(os.Args) == 2 && len(s) == 1 {
+		switchContext(referenceHelper{kubeconfig.ActiveContext, os.Args[1]})
+		os.Exit(0)
+	}
+
+	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) {
+		switchContext(referenceHelper{s[0], s[1]})
+		os.Exit(0)
+	}
+
+	if len(os.Args) == 3 && contextExists(os.Args[1]) {
+		switchContext(referenceHelper{os.Args[1], os.Args[2]})
+		os.Exit(0)
+	}
+}
+
+func contextExists(context string) bool {
+	for _, ctx := range kubeconfig.Contexts {
+		if context == ctx.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
 func main() {
 	loadConfig()
 
-	app := tview.NewApplication()
-	openNode := new(tview.TreeNode)
+	if len(os.Args) > 1 {
+		quickSwitch()
+	}
 
-	nodeRoot := tview.NewTreeNode("Contexts")
+	app := tview.NewApplication()
+
+	nodeRoot := tview.NewTreeNode("Contexts").
+		SetSelectable(false)
+
+	expandedNode := new(tview.TreeNode)
 	highlightNode := nodeRoot
 
 	for _, thisContext := range kubeconfig.Contexts {
-		nodeContextName := tview.NewTreeNode(" " + thisContext.Name).
-			SetSelectable(true)
+		nodeContextName := tview.NewTreeNode(" " + thisContext.Name)
 
 		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext.Name)
-
 		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(" " + thisContext.Name + " (" + err.Error() + ")")
+				SetText(" " + thisContext.Name + " (" + err.Error() + ")").
+				SetSelectable(false)
 		} else if thisContext.Name == kubeconfig.ActiveContext {
 			nodeContextName.SetColor(tcell.ColorGreen).
 				SetText(" " + thisContext.Name + " (active)")
 		} else {
 			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
+
 		nodeContextName.Collapse()
 		nodeContextName.SetSelectedFunc(func() {
 			nodeContextName.SetExpanded(!nodeContextName.IsExpanded())
-			if nodeContextName.IsExpanded() && openNode != nodeContextName {
-				openNode.SetExpanded(false)
-				openNode = nodeContextName
+
+			if nodeContextName.IsExpanded() && expandedNode != nodeContextName {
+				expandedNode.Collapse()
+				expandedNode = nodeContextName
 			}
 		})
+
 		nodeRoot.AddChild(nodeContextName)
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
 			nodeNamespace := tview.NewTreeNode(" " + thisNamespace.Name).
 				SetReference(referenceHelper{thisContext.Name, thisNamespace.Name})
 
-			if thisContext.Name == kubeconfig.ActiveContext &&
-				thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
-				nodeNamespace.SetColor(tcell.ColorGreen)
-				highlightNode = nodeNamespace
+			if thisContext.Name == kubeconfig.ActiveContext {
+				nodeContextName.Expand()
+				expandedNode = nodeContextName
+
+				if thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
+					nodeNamespace.SetColor(tcell.ColorGreen)
+					highlightNode = nodeNamespace
+				}
 			}
 
 			nodeNamespace.SetSelectedFunc(func() {
@@ -162,11 +208,13 @@ func main() {
 			})
 			nodeContextName.AddChild(nodeNamespace)
 		}
+
 	}
+
 	tree := tview.NewTreeView().
 		SetRoot(nodeRoot).
-		SetCurrentNode(highlightNode).
-		SetTopLevel(0)
+		SetCurrentNode(highlightNode)
+
 	if err := app.SetRoot(tree, true).Run(); err != nil {
 		log.Fatalln(err)
 	}
