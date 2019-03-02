@@ -16,8 +16,9 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	k8s "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -206,7 +207,6 @@ func main() {
 				app.Stop()
 				switchContext(nodeNamespace.GetReference().(referenceHelper))
 			})
-
 			nodeContextName.AddChild(nodeNamespace)
 		}
 
