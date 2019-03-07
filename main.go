@@ -75,17 +75,17 @@ func quickSwitch() {
 
 	s := strings.Split(os.Args[1], "/")
 
-	if len(os.Args) == 2 && len(s) == 1 {
+	if len(os.Args) == 2 && len(s) == 1 && namespaceExists(mergedConfig.CurrentContext, os.Args[1]) {
 		switchContext(referenceHelper{mergedConfig.CurrentContext, os.Args[1]})
 		os.Exit(0)
 	}
 
-	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) {
+	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) && namespaceExists(s[0], s[1]) {
 		switchContext(referenceHelper{s[0], s[1]})
 		os.Exit(0)
 	}
 
-	if len(os.Args) == 3 && contextExists(os.Args[1]) {
+	if len(os.Args) == 3 && contextExists(os.Args[1]) && namespaceExists(os.Args[1], os.Args[2]) {
 		switchContext(referenceHelper{os.Args[1], os.Args[2]})
 		os.Exit(0)
 	}
@@ -96,9 +96,20 @@ func contextExists(context string) bool {
 	return exists
 }
 
+func namespaceExists(context, namespace string) bool {
+	namespacesInThisContextsCluster, _ := getNamespacesInContextsCluster(context)
+
+	for _, ns := range namespacesInThisContextsCluster {
+		if ns.Name == namespace {
+			return true
+		}
+	}
+
+	return false
+}
+
 func main() {
 	var err error
-
 	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: strings.Split(os.Getenv("KUBECONFIG"), ":")}
 	mergedConfig, err = loadingRules.Load()
 
