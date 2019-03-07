@@ -1,57 +1,36 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
-	yaml "gopkg.in/yaml.v2"
+
 	k8s "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
-
-type config struct {
-	ActiveContext string `yaml:"current-context"`
-	Contexts      []struct {
-		Name       string `yaml:"name"`
-		Attributes struct {
-			ActiveNamespace string `yaml:"namespace"`
-		} `yaml:"context"`
-	} `yaml:"contexts"`
-}
 
 type referenceHelper struct {
 	context   string
 	namespace string
 }
 
-var kubeconfig config
+var mergedConfig *clientcmdapi.Config
 
 func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{
-			ExplicitPath: os.Getenv("KUBECONFIG")},
-		&clientcmd.ConfigOverrides{
-			CurrentContext: context}).
-		ClientConfig()
+	config, err := clientcmd.NewDefaultClientConfig(*mergedConfig, &clientcmd.ConfigOverrides{CurrentContext: context}).ClientConfig()
 
 	if err != nil {
-		if reflect.TypeOf(err).String() == "clientcmd.errConfigurationInvalid" {
-			return []k8s.Namespace{}, fmt.Errorf("error in config file")
-		}
-
 		log.Fatalln(err)
 	}
 
@@ -78,40 +57,15 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 }
 
 func switchContext(rh referenceHelper) {
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{
-			ExplicitPath: os.Getenv("KUBECONFIG")},
-		&clientcmd.ConfigOverrides{}).
-		RawConfig()
+	mergedConfig.CurrentContext = rh.context
+	mergedConfig.Contexts[rh.context].Namespace = rh.namespace
 
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	config.CurrentContext = rh.context
-	config.Contexts[rh.context].Namespace = rh.namespace
 	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-
-	if err := clientcmd.ModifyConfig(configAccess, config, false); err != nil {
+	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
 		log.Fatalln(err)
 	}
 
 	log.Printf("switched to %s/%s", rh.context, rh.namespace)
-}
-
-func loadConfig() {
-	configContent, err := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	if len(configContent) == 0 {
-		log.Fatalln(errors.New("empty configuration file"))
-	}
-
-	if err := yaml.Unmarshal(configContent, &kubeconfig); err != nil {
-		log.Fatalln(err)
-	}
 }
 
 func quickSwitch() {
@@ -122,7 +76,7 @@ func quickSwitch() {
 	s := strings.Split(os.Args[1], "/")
 
 	if len(os.Args) == 2 && len(s) == 1 {
-		switchContext(referenceHelper{kubeconfig.ActiveContext, os.Args[1]})
+		switchContext(referenceHelper{mergedConfig.CurrentContext, os.Args[1]})
 		os.Exit(0)
 	}
 
@@ -138,17 +92,19 @@ func quickSwitch() {
 }
 
 func contextExists(context string) bool {
-	for _, ctx := range kubeconfig.Contexts {
-		if context == ctx.Name {
-			return true
-		}
-	}
-
-	return false
+	_, exists := mergedConfig.Contexts[context]
+	return exists
 }
 
 func main() {
-	loadConfig()
+	var err error
+
+	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: strings.Split(os.Getenv("KUBECONFIG"), ":")}
+	mergedConfig, err = loadingRules.Load()
+
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	if len(os.Args) > 1 {
 		quickSwitch()
@@ -162,17 +118,17 @@ func main() {
 	expandedNode := new(tview.TreeNode)
 	highlightNode := nodeRoot
 
-	for _, thisContext := range kubeconfig.Contexts {
-		nodeContextName := tview.NewTreeNode(" " + thisContext.Name)
+	for thisContext := range mergedConfig.Contexts {
+		nodeContextName := tview.NewTreeNode(" " + thisContext)
 
-		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext.Name)
+		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext)
 		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(" " + thisContext.Name + " (" + err.Error() + ")").
+				SetText(" " + thisContext + " (" + err.Error() + ")").
 				SetSelectable(false)
-		} else if thisContext.Name == kubeconfig.ActiveContext {
+		} else if thisContext == mergedConfig.CurrentContext {
 			nodeContextName.SetColor(tcell.ColorGreen).
-				SetText(" " + thisContext.Name + " (active)")
+				SetText(" " + thisContext + " (active)")
 		} else {
 			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
@@ -191,13 +147,13 @@ func main() {
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
 			nodeNamespace := tview.NewTreeNode(" " + thisNamespace.Name).
-				SetReference(referenceHelper{thisContext.Name, thisNamespace.Name})
+				SetReference(referenceHelper{thisContext, thisNamespace.Name})
 
-			if thisContext.Name == kubeconfig.ActiveContext {
+			if thisContext == mergedConfig.CurrentContext {
 				nodeContextName.Expand()
 				expandedNode = nodeContextName
 
-				if thisNamespace.Name == thisContext.Attributes.ActiveNamespace {
+				if thisNamespace.Name == mergedConfig.Contexts[thisContext].Namespace {
 					nodeNamespace.SetColor(tcell.ColorGreen)
 					highlightNode = nodeNamespace
 				}
