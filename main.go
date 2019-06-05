@@ -110,7 +110,14 @@ func namespaceExists(context, namespace string) bool {
 
 func main() {
 	var err error
-	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: strings.Split(os.Getenv("KUBECONFIG"), ":")}
+
+	kubeconfLocation := os.Getenv("HOME") + "/.kube/config"
+
+	if len(os.Getenv("KUBECONFIG")) > 0 {
+		kubeconfLocation = os.Getenv("KUBECONFIG")
+	}
+
+	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: strings.Split(kubeconfLocation, ":")}
 	mergedConfig, err = loadingRules.Load()
 
 	if err != nil {
