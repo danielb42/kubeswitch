@@ -11,9 +11,9 @@ import (
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 
-	k8s "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,7 +27,7 @@ type referenceHelper struct {
 
 var mergedConfig *clientcmdapi.Config
 
-func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
+func getNamespacesInContextsCluster(context string) ([]corev1.Namespace, error) {
 	config, err := clientcmd.NewDefaultClientConfig(*mergedConfig, &clientcmd.ConfigOverrides{CurrentContext: context}).ClientConfig()
 
 	if err != nil {
@@ -41,15 +41,15 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 		log.Fatalln(err)
 	}
 
-	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		switch err.(type) {
 		case *url.Error:
-			return []k8s.Namespace{}, fmt.Errorf("unreachable")
+			return []corev1.Namespace{}, fmt.Errorf("unreachable")
 		case *apierrors.StatusError:
-			return []k8s.Namespace{}, fmt.Errorf("error from api: " + err.Error())
+			return []corev1.Namespace{}, fmt.Errorf("error from api: " + err.Error())
 		default:
-			return []k8s.Namespace{}, fmt.Errorf("error")
+			return []corev1.Namespace{}, fmt.Errorf("error")
 		}
 	}
 
