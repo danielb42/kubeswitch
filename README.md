@@ -7,10 +7,10 @@ Switch your current kubernetes context and namespace graphically by selecting fr
 ![Screenshot](kubeswitch.png)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Demo](demo.gif)
 
 ## Install
-`go get github.com/danielb42/kubeswitch`
+`go install github.com/danielb42/kubeswitch`
 
 ## Config
-The location of your `kube.conf` is read from environment variable `KUBECONFIG`.
+Read from the default location `~/.kube/config`. If not present, the location is read from environment variable `KUBECONFIG`. Can contain multiple locations separated by `:` from where configs are merged together.
 
 ## Run
 | Run... | to... |
