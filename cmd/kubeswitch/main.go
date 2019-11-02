@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -136,17 +137,17 @@ func main() {
 	expandedNode := new(tview.TreeNode)
 	highlightNode := nodeRoot
 
-	for thisContext := range mergedConfig.Contexts {
-		nodeContextName := tview.NewTreeNode(" " + thisContext)
+	for _, thisContextName := range mapKeysToSortedArray(mergedConfig.Contexts) {
+		nodeContextName := tview.NewTreeNode(" " + thisContextName)
 
-		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContext)
+		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContextName)
 		if err != nil {
 			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(" " + thisContext + " (" + err.Error() + ")").
+				SetText(" " + thisContextName + " (" + err.Error() + ")").
 				SetSelectable(false)
-		} else if thisContext == mergedConfig.CurrentContext {
+		} else if thisContextName == mergedConfig.CurrentContext {
 			nodeContextName.SetColor(tcell.ColorGreen).
-				SetText(" " + thisContext + " (active)")
+				SetText(" " + thisContextName + " (active)")
 		} else {
 			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
@@ -165,13 +166,13 @@ func main() {
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
 			nodeNamespace := tview.NewTreeNode(" " + thisNamespace.Name).
-				SetReference(referenceHelper{thisContext, thisNamespace.Name})
+				SetReference(referenceHelper{thisContextName, thisNamespace.Name})
 
-			if thisContext == mergedConfig.CurrentContext {
+			if thisContextName == mergedConfig.CurrentContext {
 				nodeContextName.Expand()
 				expandedNode = nodeContextName
 
-				if thisNamespace.Name == mergedConfig.Contexts[thisContext].Namespace {
+				if thisNamespace.Name == mergedConfig.Contexts[thisContextName].Namespace {
 					nodeNamespace.SetColor(tcell.ColorGreen)
 					highlightNode = nodeNamespace
 				}
@@ -193,4 +194,15 @@ func main() {
 	if err := app.SetRoot(tree, true).Run(); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func mapKeysToSortedArray(m map[string]*clientcmdapi.Context) []string {
+	var s []string
+
+	for k := range m {
+		s = append(s, k)
+	}
+
+	sort.Strings(s)
+	return s
 }
