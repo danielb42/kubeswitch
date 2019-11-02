@@ -34,7 +34,7 @@ func getNamespacesInContextsCluster(context string) ([]corev1.Namespace, error) 
 		log.Fatalln(err)
 	}
 
-	config.Timeout = 500 * time.Millisecond
+	config.Timeout = time.Second
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
