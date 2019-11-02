@@ -9,6 +9,8 @@ Switch your current kubernetes context and namespace graphically by selecting fr
 ## Install
 `go install github.com/danielb42/kubeswitch`
 
+**Note for Non-Admin Users:** If you are a cluster tenant without permission to list namespaces, kubeswitch won't work for you (as it can't retrieve available namespaces). Have a look at [kubeswitch-lite](https://github.com/danielb42/kubeswitch/tree/master/cmd/kubeswitch-lite), which does not discover namespaces but instead works on user-defined namespaces.
+
 ## Config
 Read from the default location `~/.kube/config`. If not present, the location is read from environment variable `KUBECONFIG`. Can contain multiple locations separated by `:` from where configs are merged together.
 
