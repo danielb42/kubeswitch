@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"sort"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -38,13 +39,12 @@ func main() {
 	nodeRoot := tview.NewTreeNode("⛅").SetSelectable(false)
 	highlightNode := nodeRoot
 
-	for cluster := range mergedConfig.Clusters {
-		nodeClusterName := tview.NewTreeNode(" " + cluster)
-		nodeClusterName.SetColor(tcell.ColorGreen).SetText(" " + cluster).SetSelectable(false)
+	for _, clusterName := range mapKeysToSortedArray(mergedConfig.Clusters) {
+		nodeClusterName := tview.NewTreeNode(" " + clusterName).SetColor(tcell.ColorGreen).SetSelectable(false)
 		nodeRoot.AddChild(nodeClusterName)
 
 		for _, namespace := range readUsersNamespaces() {
-			nodeNamespace := tview.NewTreeNode(" " + namespace).SetReference(referenceHelper{cluster, namespace, "user-" + cluster})
+			nodeNamespace := tview.NewTreeNode(" " + namespace).SetReference(referenceHelper{clusterName, namespace, "user-" + clusterName})
 			nodeClusterName.AddChild(nodeNamespace)
 			nodeNamespace.SetSelectedFunc(func() {
 				app.Stop()
@@ -52,7 +52,7 @@ func main() {
 			})
 
 			if _, ok := mergedConfig.Contexts["kubeswitch"]; ok {
-				if cluster == mergedConfig.Contexts["kubeswitch"].Cluster &&
+				if clusterName == mergedConfig.Contexts["kubeswitch"].Cluster &&
 					namespace == mergedConfig.Contexts["kubeswitch"].Namespace {
 					nodeNamespace.SetColor(tcell.ColorGreen)
 					highlightNode = nodeNamespace
@@ -68,6 +68,24 @@ func main() {
 	if err := app.SetRoot(tree, true).Run(); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func doSwitch(rh referenceHelper) {
+	mergedConfig.Contexts["kubeswitch"] = &clientcmdapi.Context{
+		LocationOfOrigin: kubeconfLocation,
+		Cluster:          rh.cluster,
+		Namespace:        rh.namespace,
+		AuthInfo:         rh.user,
+	}
+
+	mergedConfig.CurrentContext = "kubeswitch"
+
+	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
+	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
+		log.Fatalln(err)
+	}
+
+	log.Printf("switched to %s/%s", rh.cluster, rh.namespace)
 }
 
 func readUsersNamespaces() []string {
@@ -89,24 +107,13 @@ func readUsersNamespaces() []string {
 	return namespaces
 }
 
-func doSwitch(rh referenceHelper) {
-	mergedConfig.Contexts["kubeswitch"] = &clientcmdapi.Context{
-		LocationOfOrigin: "kubeswitch",
-		Cluster:          rh.cluster,
-		Namespace:        rh.namespace,
-		AuthInfo:         rh.user,
+func mapKeysToSortedArray(m map[string]*clientcmdapi.Cluster) []string {
+	var s []string
+
+	for k := range m {
+		s = append(s, k)
 	}
 
-	mergedConfig.CurrentContext = "kubeswitch"
-
-	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
-		log.Fatalln(err)
-	}
-
-	if err := clientcmd.WriteToFile(*mergedConfig, kubeconfLocation); err != nil {
-		log.Fatalln(err)
-	}
-
-	log.Printf("switched to %s/%s", rh.cluster, rh.namespace)
+	sort.Strings(s)
+	return s
 }
