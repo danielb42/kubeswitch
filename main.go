@@ -47,7 +47,7 @@ func getNamespacesInContextsCluster(context string) ([]k8s.Namespace, error) {
 		case *url.Error:
 			return []k8s.Namespace{}, fmt.Errorf("unreachable")
 		case *apierrors.StatusError:
-			return []k8s.Namespace{}, fmt.Errorf("error from api: " + err.(*apierrors.StatusError).Error())
+			return []k8s.Namespace{}, fmt.Errorf("error from api: " + err.Error())
 		default:
 			return []k8s.Namespace{}, fmt.Errorf("error")
 		}
