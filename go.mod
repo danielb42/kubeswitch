@@ -21,9 +21,16 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/api v0.0.0-20190918155943-95b840bb6a1f
-	k8s.io/apimachinery v0.0.0-20190913080033-27d36303b655
-	k8s.io/client-go v0.0.0-20190918160344-1fbdaa4c8d90
+	k8s.io/api v0.0.0-20191016110246-af539daaa43a
+	k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
+	k8s.io/client-go v0.0.0-20191016110837-54936ba21026
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/utils v0.0.0-20191030222137-2b95a09bc58d // indirect
+)
+
+replace (
+	github.com/Azure/go-autorest => github.com/Azure/go-autorest v12.2.0+incompatible
+	k8s.io/api => k8s.io/api v0.0.0-20191016110246-af539daaa43a
+	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
+	k8s.io/client-go => k8s.io/client-go v0.0.0-20191016110837-54936ba21026
 )
