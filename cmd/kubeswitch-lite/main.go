@@ -26,14 +26,19 @@ type referenceHelper struct {
 var (
 	kubeconfLocation = os.Getenv("HOME") + "/.kube/kubeswitch.yaml"
 	namespacesFile   = os.Getenv("HOME") + "/.kubeswitch_namespaces"
-	mergedConfig     *clientcmdapi.Config
+	config           *clientcmdapi.Config
 )
 
 func main() {
 	var err error
 
+	if len(os.Args) > 1 && os.Args[1] == "--init" {
+		createConfig()
+		os.Exit(0)
+	}
+
 	loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfLocation}
-	mergedConfig, err = loadingRules.Load()
+	config, err = loadingRules.Load()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -42,7 +47,7 @@ func main() {
 	nodeRoot := tview.NewTreeNode("⛅").SetSelectable(false)
 	highlightNode := nodeRoot
 
-	for _, clusterName := range mapKeysToSortedArray(mergedConfig.Clusters) {
+	for _, clusterName := range mapKeysToSortedArray(config.Clusters) {
 		nodeClusterName := tview.NewTreeNode(" " + clusterName).SetColor(tcell.ColorGreen).SetSelectable(false)
 		nodeRoot.AddChild(nodeClusterName)
 
@@ -54,9 +59,9 @@ func main() {
 				doSwitch(nodeNamespace.GetReference().(referenceHelper))
 			})
 
-			if _, ok := mergedConfig.Contexts["kubeswitch"]; ok {
-				if clusterName == mergedConfig.Contexts["kubeswitch"].Cluster &&
-					namespace == mergedConfig.Contexts["kubeswitch"].Namespace {
+			if _, ok := config.Contexts["kubeswitch"]; ok {
+				if clusterName == config.Contexts["kubeswitch"].Cluster &&
+					namespace == config.Contexts["kubeswitch"].Namespace {
 					nodeNamespace.SetColor(tcell.ColorGreen)
 					highlightNode = nodeNamespace
 				}
@@ -74,17 +79,17 @@ func main() {
 }
 
 func doSwitch(rh referenceHelper) {
-	mergedConfig.Contexts["kubeswitch"] = &clientcmdapi.Context{
+	config.Contexts["kubeswitch"] = &clientcmdapi.Context{
 		LocationOfOrigin: kubeconfLocation,
 		Cluster:          rh.cluster,
 		Namespace:        rh.namespace,
 		AuthInfo:         rh.user,
 	}
 
-	mergedConfig.CurrentContext = "kubeswitch"
+	config.CurrentContext = "kubeswitch"
 
 	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
+	if err := clientcmd.ModifyConfig(configAccess, *config, false); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -107,7 +112,30 @@ func readUsersNamespaces() []string {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+
+	if len(namespaces) == 0 {
+		log.Fatal("could not read any namespaces from " + namespacesFile)
+	}
+
 	return namespaces
+}
+
+func createConfig() {
+	if len(os.Args) < 3 {
+		log.Fatal("ERROR: no kubeconfig locations specified")
+	}
+
+	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: os.Args[1:]}
+	mergedConfig, err := loadingRules.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := clientcmd.WriteToFile(*mergedConfig, kubeconfLocation); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("merged kubeconfig written to " + kubeconfLocation)
 }
 
 func mapKeysToSortedArray(m map[string]*clientcmdapi.Cluster) []string {
