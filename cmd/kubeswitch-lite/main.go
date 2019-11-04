@@ -32,6 +32,11 @@ var (
 func main() {
 	var err error
 
+	if len(os.Args) > 1 && os.Args[1] == "--init" {
+		createConfig()
+		os.Exit(0)
+	}
+
 	loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfLocation}
 	config, err = loadingRules.Load()
 	if err != nil {
@@ -107,7 +112,30 @@ func readUsersNamespaces() []string {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+
+	if len(namespaces) == 0 {
+		log.Fatal("could not read any namespaces from " + namespacesFile)
+	}
+
 	return namespaces
+}
+
+func createConfig() {
+	if len(os.Args) < 3 {
+		log.Fatal("ERROR: no kubeconfig locations specified")
+	}
+
+	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: os.Args[1:]}
+	mergedConfig, err := loadingRules.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := clientcmd.WriteToFile(*mergedConfig, kubeconfLocation); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("merged kubeconfig written to " + kubeconfLocation)
 }
 
 func mapKeysToSortedArray(m map[string]*clientcmdapi.Cluster) []string {
