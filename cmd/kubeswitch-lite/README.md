@@ -15,8 +15,7 @@ go install github.com/danielb42/kubeswitch/cmd/kubeswitch-lite
 ## Config
 kubeswitch-lite operates on its own kubeconfig file which is a copy of your original config or merged together from multiple other kubeconfigs.  
 1. To generate a merged config file, run `kubeswitch-lite --init /path/to/kubeconf1 /path/to/kubeconf2 [...]`.
-* To succesfully merge config files, `name` values of objects must be unique per config. Otherwise, only the first seen object will exist in the merged conf.
-* `user` objects must be named `user-<corresponding cluster name>` before merging.
+* `user` objects must be named `user-<namespace>-<cluster>` before merging.
 2. `export KUBECONFIG="$HOME/.kube/kubeswitch.yaml"`
 3. Your accessible namespaces are read from `~/.kubeswitch_namespaces`, place one namespace name per line there.
 

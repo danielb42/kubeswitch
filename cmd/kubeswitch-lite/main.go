@@ -52,7 +52,7 @@ func main() {
 		nodeRoot.AddChild(nodeClusterName)
 
 		for _, namespace := range readUsersNamespaces() {
-			nodeNamespace := tview.NewTreeNode(" " + namespace).SetReference(referenceHelper{clusterName, namespace, "user-" + clusterName})
+			nodeNamespace := tview.NewTreeNode(" " + namespace).SetReference(referenceHelper{clusterName, namespace, "user-" + namespace + "-" + clusterName})
 			nodeClusterName.AddChild(nodeNamespace)
 			nodeNamespace.SetSelectedFunc(func() {
 				app.Stop()
