@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -26,6 +27,8 @@ type referenceHelper struct {
 var (
 	kubeconfLocation = os.Getenv("HOME") + "/.kube/kubeswitch.yaml"
 	namespacesFile   = os.Getenv("HOME") + "/.kubeswitch_namespaces"
+	ignoreFile       = os.Getenv("HOME") + "/.kubeswitch_ignore"
+	ignoreTuples     = make(map[string]map[string]bool)
 	config           *clientcmdapi.Config
 )
 
@@ -43,6 +46,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	readIgnoreTuples()
+
 	app := tview.NewApplication()
 	nodeRoot := tview.NewTreeNode("⛅").SetSelectable(false)
 	highlightNode := nodeRoot
@@ -52,6 +57,10 @@ func main() {
 		nodeRoot.AddChild(nodeClusterName)
 
 		for _, namespace := range readUsersNamespaces() {
+			if ignoreTuples[clusterName][namespace] {
+				continue
+			}
+
 			nodeNamespace := tview.NewTreeNode(" " + namespace).SetReference(referenceHelper{clusterName, namespace, "user-" + namespace + "-" + clusterName})
 			nodeClusterName.AddChild(nodeNamespace)
 			nodeNamespace.SetSelectedFunc(func() {
@@ -118,6 +127,36 @@ func readUsersNamespaces() []string {
 	}
 
 	return namespaces
+}
+
+func readIgnoreTuples() {
+	file, err := os.Open(ignoreFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	var tuples []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		tuples = append(tuples, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	for _, t := range tuples {
+		s := strings.Split(t, ":")
+		if _, exists := ignoreTuples[s[0]]; !exists {
+			ignoreTuples[s[0]] = make(map[string]bool)
+		}
+		ignoreTuples[s[0]][s[1]] = true
+	}
 }
 
 func createConfig() {
