@@ -152,10 +152,14 @@ func readIgnoreTuples() {
 
 	for _, t := range tuples {
 		s := strings.Split(t, ":")
+
 		if _, exists := ignoreTuples[s[0]]; !exists {
 			ignoreTuples[s[0]] = make(map[string]bool)
 		}
-		ignoreTuples[s[0]][s[1]] = true
+
+		if len(s) == 2 {
+			ignoreTuples[s[0]][s[1]] = true
+		}
 	}
 }
 
