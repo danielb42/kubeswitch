@@ -15,7 +15,7 @@ GO111MODULE=on go get github.com/danielb42/kubeswitch/cmd/kubeswitch
 ~~Have a look at [kubeswitch-lite](https://github.com/danielb42/kubeswitch/tree/master/cmd/kubeswitch-lite), which does not discover namespaces but instead works on user-defined namespaces.~~ (Update 07/2020: Sorry, kubeswitch-lite is not available at the moment as the configuration process was quite error-prone (and thus a PITA for the user). It may come back some day.)
 
 ## Config
-Read from the default location `~/.kube/config`. If not present, the location is read from environment variable `KUBECONFIG`. That can contain multiple locations separated by `:` from where configs are merged together.
+Read from the default location `~/.kube/config`. If not present, the location is read from environment variable `KUBECONFIG` (remember to `export`). That env variable can contain multiple locations separated by `:` from where configs are merged together.
 
 ## Run
 | Run... | to... |
