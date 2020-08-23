@@ -3,6 +3,7 @@ package main
 import (
 	c "context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -31,7 +32,10 @@ type referenceHelper struct {
 	namespace string
 }
 
-var mergedConfig *clientcmdapi.Config
+var (
+	kubeconfLocation = os.Getenv("HOME") + "/.kube/config"
+	mergedConfig     *clientcmdapi.Config
+)
 
 func getNamespacesInContextsCluster(context string) ([]corev1.Namespace, error) {
 	config, err := clientcmd.NewDefaultClientConfig(*mergedConfig, &clientcmd.ConfigOverrides{CurrentContext: context}).ClientConfig()
@@ -66,12 +70,37 @@ func switchContext(rh referenceHelper) {
 	mergedConfig.CurrentContext = rh.context
 	mergedConfig.Contexts[rh.context].Namespace = rh.namespace
 
+	removeStaleContextConfigs()
+
 	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
 	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
 		log.Fatalln(err)
 	}
 
 	log.Printf("switched to %s/%s", rh.context, rh.namespace)
+}
+
+func removeStaleContextConfigs() {
+
+	for _, configFilename := range strings.Split(kubeconfLocation, ":") {
+		var output []string
+
+		cfStat, _ := os.Stat(configFilename)
+		cfFileMode := cfStat.Mode()
+
+		cfContent, _ := ioutil.ReadFile(configFilename)
+		cfLines := strings.Split(string(cfContent), "\n")
+
+		for _, line := range cfLines {
+			if strings.Contains(line, "current-context:") {
+				continue
+			}
+
+			output = append(output, line)
+		}
+
+		_ = ioutil.WriteFile(configFilename, []byte(strings.Join(output, "\n")), cfFileMode)
+	}
 }
 
 func quickSwitch() {
@@ -116,8 +145,6 @@ func namespaceExists(context, namespace string) bool {
 
 func main() {
 	var err error
-
-	kubeconfLocation := os.Getenv("HOME") + "/.kube/config"
 
 	if len(os.Getenv("KUBECONFIG")) > 0 {
 		kubeconfLocation = os.Getenv("KUBECONFIG")
