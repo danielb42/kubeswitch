@@ -1,13 +1,17 @@
 # kubeswitch
-[![Go Report Card](https://goreportcard.com/badge/github.com/danielb42/kubeswitch)](https://goreportcard.com/report/github.com/danielb42/kubeswitch) 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
 
-Switch your current kubernetes context and namespace graphically by selecting from a tree. kubeswitch talks to the kubernetes API and does not depend on kubectl. 
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/danielb42/kubeswitch)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/danielb42/kubeswitch)
+[![Go Report Card](https://goreportcard.com/badge/github.com/danielb42/kubeswitch)](https://goreportcard.com/report/github.com/danielb42/kubeswitch)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)  
 
-![Screenshot](kubeswitch.png)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Demo](demo.gif)
+Switch your current kubernetes context and namespace graphically by selecting from a tree. kubeswitch talks to the kubernetes API and does not depend on kubectl.
+
+![Demo](https://raw.githubusercontent.com/danielb42/kubeswitch/master/demo.gif)
 
 ## Install
-```
+
+```golang
 GO111MODULE=on go get github.com/danielb42/kubeswitch/cmd/kubeswitch
 ```
 
@@ -15,11 +19,13 @@ GO111MODULE=on go get github.com/danielb42/kubeswitch/cmd/kubeswitch
 ~~Have a look at [kubeswitch-lite](https://github.com/danielb42/kubeswitch/tree/master/cmd/kubeswitch-lite), which does not discover namespaces but instead works on user-defined namespaces.~~ (Update 07/2020: Sorry, kubeswitch-lite is not available at the moment as the configuration process was quite error-prone (and thus a PITA for the user). It may come back some day.)
 
 ## Config
+
 Read from the default location `~/.kube/config`. If not present, the location is read from environment variable `KUBECONFIG` (remember to `export`). That env variable can contain multiple locations separated by `:` from where configs are merged together.
 
 ## Run
+
 | Run... | to... |
 |-|-|
 | `kubeswitch` | select context/namespace graphically |  
 | `kubeswitch <namespace>` | switch to namespace in current context quickly |  
-| `kubeswitch <context> <namespace>`<br>`kubeswitch <context>/<namespace>` | switch to context/namespace |
+| `kubeswitch <context> <namespace>`<br />`kubeswitch <context>/<namespace>` | switch to context/namespace |
