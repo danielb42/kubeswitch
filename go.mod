@@ -1,17 +1,11 @@
 module github.com/danielb42/kubeswitch
 
-go 1.13
+go 1.15
 
 require (
 	github.com/gdamore/tcell v1.3.0
-	github.com/rivo/tview v0.0.0-20191018125527-685bf6da76c2
-	k8s.io/api v0.0.0-20191016110246-af539daaa43a
-	k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
-	k8s.io/client-go v0.0.0-20191016110837-54936ba21026
-)
-
-replace (
-	k8s.io/api => k8s.io/api v0.0.0-20191016110246-af539daaa43a
-	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20191016110837-54936ba21026
+	github.com/rivo/tview v0.0.0-20200818120338-53d50e499bf9
+	k8s.io/api v0.18.8
+	k8s.io/apimachinery v0.18.8
+	k8s.io/client-go v0.18.8
 )

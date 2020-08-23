@@ -1,6 +1,7 @@
 package main
 
 import (
+	c "context"
 	"fmt"
 	"log"
 	"net/url"
@@ -45,7 +46,7 @@ func getNamespacesInContextsCluster(context string) ([]corev1.Namespace, error) 
 		log.Fatalln(err)
 	}
 
-	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(c.TODO(), metav1.ListOptions{})
 	if err != nil {
 		switch err.(type) {
 		case *url.Error:
