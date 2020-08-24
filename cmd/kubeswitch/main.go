@@ -1,7 +1,7 @@
 package main
 
 import (
-	c "context"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -17,8 +17,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	kubernetes "k8s.io/client-go/kubernetes"
+	clientcmd "k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
@@ -27,9 +27,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
 )
 
-type referenceHelper struct {
-	context   string
-	namespace string
+type contextNamespaceTuple struct {
+	k8sContext   string
+	k8sNamespace string
 }
 
 var (
@@ -37,122 +37,22 @@ var (
 	mergedConfig     *clientcmdapi.Config
 )
 
-func getNamespacesInContextsCluster(context string) ([]corev1.Namespace, error) {
-	config, err := clientcmd.NewDefaultClientConfig(*mergedConfig, &clientcmd.ConfigOverrides{CurrentContext: context}).ClientConfig()
-
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	config.Timeout = time.Second
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	namespaces, err := clientset.CoreV1().Namespaces().List(c.TODO(), metav1.ListOptions{})
-	if err != nil {
-		switch err.(type) {
-		case *url.Error:
-			return []corev1.Namespace{}, fmt.Errorf("unreachable")
-		case *apierrors.StatusError:
-			return []corev1.Namespace{}, fmt.Errorf("error from api: " + err.Error())
-		default:
-			return []corev1.Namespace{}, fmt.Errorf("error")
-		}
-	}
-
-	return namespaces.Items, nil
-}
-
-func switchContext(rh referenceHelper) {
-	mergedConfig.CurrentContext = rh.context
-	mergedConfig.Contexts[rh.context].Namespace = rh.namespace
-
-	removeStaleContextConfigs()
-
-	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
-	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
-		log.Fatalln(err)
-	}
-
-	log.Printf("switched to %s/%s", rh.context, rh.namespace)
-}
-
-func removeStaleContextConfigs() {
-
-	for _, configFilename := range strings.Split(kubeconfLocation, ":") {
-		var output []string
-
-		cfStat, _ := os.Stat(configFilename)
-		cfFileMode := cfStat.Mode()
-
-		cfContent, _ := ioutil.ReadFile(configFilename)
-		cfLines := strings.Split(string(cfContent), "\n")
-
-		for _, line := range cfLines {
-			if strings.Contains(line, "current-context:") {
-				continue
-			}
-
-			output = append(output, line)
-		}
-
-		_ = ioutil.WriteFile(configFilename, []byte(strings.Join(output, "\n")), cfFileMode)
-	}
-}
-
-func quickSwitch() {
-	if len(os.Args) == 1 {
-		return
-	}
-
-	s := strings.Split(os.Args[1], "/")
-
-	if len(os.Args) == 2 && len(s) == 1 && namespaceExists(mergedConfig.CurrentContext, os.Args[1]) {
-		switchContext(referenceHelper{mergedConfig.CurrentContext, os.Args[1]})
-		os.Exit(0)
-	}
-
-	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) && namespaceExists(s[0], s[1]) {
-		switchContext(referenceHelper{s[0], s[1]})
-		os.Exit(0)
-	}
-
-	if len(os.Args) == 3 && contextExists(os.Args[1]) && namespaceExists(os.Args[1], os.Args[2]) {
-		switchContext(referenceHelper{os.Args[1], os.Args[2]})
-		os.Exit(0)
-	}
-}
-
-func contextExists(context string) bool {
-	_, exists := mergedConfig.Contexts[context]
-	return exists
-}
-
-func namespaceExists(context, namespace string) bool {
-	namespacesInThisContextsCluster, _ := getNamespacesInContextsCluster(context)
-
-	for _, ns := range namespacesInThisContextsCluster {
-		if ns.Name == namespace {
-			return true
-		}
-	}
-
-	return false
-}
-
 func main() {
 	var err error
+
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-h" || os.Args[1] == "--help" {
+			printUsage()
+		}
+	}
 
 	if len(os.Getenv("KUBECONFIG")) > 0 {
 		kubeconfLocation = os.Getenv("KUBECONFIG")
 	}
 
 	loadingRules := &clientcmd.ClientConfigLoadingRules{Precedence: strings.Split(kubeconfLocation, ":")}
-	mergedConfig, err = loadingRules.Load()
 
+	mergedConfig, err = loadingRules.Load()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -163,8 +63,7 @@ func main() {
 
 	app := tview.NewApplication()
 
-	nodeRoot := tview.NewTreeNode("Contexts").
-		SetSelectable(false)
+	nodeRoot := tview.NewTreeNode("Contexts").SetSelectable(false)
 
 	expandedNode := new(tview.TreeNode)
 	highlightNode := nodeRoot
@@ -174,12 +73,9 @@ func main() {
 
 		namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(thisContextName)
 		if err != nil {
-			nodeContextName.SetColor(tcell.ColorRed).
-				SetText(" " + thisContextName + " (" + err.Error() + ")").
-				SetSelectable(false)
+			nodeContextName.SetColor(tcell.ColorRed).SetText(" " + thisContextName + " (" + err.Error() + ")").SetSelectable(false)
 		} else if thisContextName == mergedConfig.CurrentContext {
-			nodeContextName.SetColor(tcell.ColorGreen).
-				SetText(" " + thisContextName + " (active)")
+			nodeContextName.SetColor(tcell.ColorGreen).SetText(" " + thisContextName + " (active)")
 		} else {
 			nodeContextName.SetColor(tcell.ColorTurquoise)
 		}
@@ -197,8 +93,7 @@ func main() {
 		nodeRoot.AddChild(nodeContextName)
 
 		for _, thisNamespace := range namespacesInThisContextsCluster {
-			nodeNamespace := tview.NewTreeNode(" " + thisNamespace.Name).
-				SetReference(referenceHelper{thisContextName, thisNamespace.Name})
+			nodeNamespace := tview.NewTreeNode(" " + thisNamespace.Name).SetReference(contextNamespaceTuple{thisContextName, thisNamespace.Name})
 
 			if thisContextName == mergedConfig.CurrentContext {
 				nodeContextName.Expand()
@@ -212,20 +107,136 @@ func main() {
 
 			nodeNamespace.SetSelectedFunc(func() {
 				app.Stop()
-				switchContext(nodeNamespace.GetReference().(referenceHelper))
+				switchContext(nodeNamespace.GetReference().(contextNamespaceTuple))
 			})
 			nodeContextName.AddChild(nodeNamespace)
 		}
 
 	}
 
-	tree := tview.NewTreeView().
-		SetRoot(nodeRoot).
-		SetCurrentNode(highlightNode)
+	tree := tview.NewTreeView().SetRoot(nodeRoot).SetCurrentNode(highlightNode)
 
 	if err := app.SetRoot(tree, true).Run(); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func getNamespacesInContextsCluster(k8sContext string) ([]corev1.Namespace, error) {
+
+	config, err := clientcmd.NewDefaultClientConfig(*mergedConfig, &clientcmd.ConfigOverrides{CurrentContext: k8sContext}).ClientConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	config.Timeout = time.Second
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		switch err.(type) {
+		case *url.Error:
+			return []corev1.Namespace{}, fmt.Errorf("unreachable")
+		case *apierrors.StatusError:
+			return []corev1.Namespace{}, fmt.Errorf("error from api: " + err.Error())
+		default:
+			return []corev1.Namespace{}, fmt.Errorf("error")
+		}
+	}
+
+	return namespaces.Items, nil
+}
+
+func switchContext(rh contextNamespaceTuple) {
+	mergedConfig.CurrentContext = rh.k8sContext
+	mergedConfig.Contexts[rh.k8sContext].Namespace = rh.k8sNamespace
+
+	removeStaleContextConfigs()
+
+	configAccess := clientcmd.NewDefaultClientConfigLoadingRules()
+
+	if err := clientcmd.ModifyConfig(configAccess, *mergedConfig, false); err != nil {
+		log.Fatalln(err)
+	}
+
+	log.Printf("switched to %s/%s", rh.k8sContext, rh.k8sNamespace)
+}
+
+func quickSwitch() {
+	if len(os.Args) == 1 {
+		return
+	}
+
+	s := strings.Split(os.Args[1], "/")
+
+	if len(os.Args) == 2 && len(s) == 1 && namespaceExists(mergedConfig.CurrentContext, os.Args[1]) {
+		switchContext(contextNamespaceTuple{mergedConfig.CurrentContext, os.Args[1]})
+	}
+
+	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) && namespaceExists(s[0], s[1]) {
+		switchContext(contextNamespaceTuple{s[0], s[1]})
+	}
+
+	if len(os.Args) == 3 && contextExists(os.Args[1]) && namespaceExists(os.Args[1], os.Args[2]) {
+		switchContext(contextNamespaceTuple{os.Args[1], os.Args[2]})
+	}
+
+	os.Exit(0)
+}
+
+func removeStaleContextConfigs() {
+
+	for _, configFilename := range strings.Split(kubeconfLocation, ":") {
+		var output []string
+
+		cfStat, err := os.Stat(configFilename)
+		if err != nil {
+			log.Fatalln("could not stat kubeconfig files")
+		}
+
+		cfFileMode := cfStat.Mode()
+
+		cfContent, err := ioutil.ReadFile(configFilename)
+		if err != nil {
+			log.Fatalln("could not read kubeconfig files")
+		}
+		cfLines := strings.Split(string(cfContent), "\n")
+
+		for _, line := range cfLines {
+			if strings.Contains(line, "current-context:") {
+				continue
+			}
+
+			output = append(output, line)
+		}
+
+		if err := ioutil.WriteFile(configFilename, []byte(strings.Join(output, "\n")), cfFileMode); err != nil {
+			log.Fatalln("could not update kubeconfig files")
+		}
+	}
+}
+
+func contextExists(k8sContext string) bool {
+	_, exists := mergedConfig.Contexts[k8sContext]
+	return exists
+}
+
+func namespaceExists(k8sContext, k8sNamespace string) bool {
+	namespacesInThisContextsCluster, err := getNamespacesInContextsCluster(k8sContext)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for _, ns := range namespacesInThisContextsCluster {
+		if ns.Name == k8sNamespace {
+			return true
+		}
+	}
+
+	return false
 }
 
 func mapKeysToSortedArray(m map[string]*clientcmdapi.Context) []string {
@@ -237,4 +248,16 @@ func mapKeysToSortedArray(m map[string]*clientcmdapi.Context) []string {
 
 	sort.Strings(s)
 	return s
+}
+
+func printUsage() {
+	usageText := `usage:
+	
+./kubeswitch                          select context/namespace graphically
+./kubeswitch <namespace>              switch to namespace in current context quickly
+./kubeswitch <context> <namespace>    switch to namespace in context quickly
+./kubeswitch <context>/<namespace>    switch to namespace in context quickly`
+
+	fmt.Println(usageText)
+	os.Exit(2)
 }
