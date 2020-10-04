@@ -1,9 +1,10 @@
 # kubeswitch
 
-![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/danielb42/kubeswitch)
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/danielb42/kubeswitch)
+![Tag](https://img.shields.io/github/v/tag/danielb42/kubeswitch)
+![Go Version](https://img.shields.io/github/go-mod/go-version/danielb42/kubeswitch)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/danielb42/kubeswitch)](https://pkg.go.dev/github.com/danielb42/kubeswitch)
 [![Go Report Card](https://goreportcard.com/badge/github.com/danielb42/kubeswitch)](https://goreportcard.com/report/github.com/danielb42/kubeswitch)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Switch your current kubernetes context and namespace graphically by selecting from a tree.  
 kubeswitch talks to the kubernetes API and does not depend on kubectl.
