@@ -1,0 +1,56 @@
+on:
+  push:
+    tags:
+      - 'v*'
+
+name: Build
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+    
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.15"
+
+      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch .
+      - run: tar czf kubeswitch_linux_amd64.tar.gz kubeswitch LICENSE README.md
+      - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch .
+      - run: tar czf kubeswitch_darwin_amd64.tar.gz kubeswitch LICENSE README.md
+      # - run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch.exe .
+      # - run: zip kubeswitch_windows_amd64.zip kubeswitch.exe LICENSE README.md
+
+      - id: get_tag_name
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_tag_name.outputs.VERSION }}
+          release_name: ${{ steps.get_tag_name.outputs.VERSION }}
+
+      - name: Upload linux asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: kubeswitch_linux_amd64.tar.gz
+          asset_name: kubeswitch_linux_amd64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload darwin asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: kubeswitch_darwin_amd64.tar.gz
+          asset_name: kubeswitch_darwin_amd64.tar.gz
+          asset_content_type: application/gzip
