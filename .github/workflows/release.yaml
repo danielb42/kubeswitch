@@ -17,11 +17,11 @@ jobs:
         with:
           go-version: "1.15"
 
-      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch .
+      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch ./cmd/...
       - run: tar czf kubeswitch_linux_amd64.tar.gz kubeswitch LICENSE README.md
-      - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch .
+      - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch ./cmd/...
       - run: tar czf kubeswitch_darwin_amd64.tar.gz kubeswitch LICENSE README.md
-      # - run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch.exe .
+      # - run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch.exe ./cmd/...
       # - run: zip kubeswitch_windows_amd64.zip kubeswitch.exe LICENSE README.md
 
       - id: get_tag_name
