@@ -34,4 +34,4 @@ Read from the default location `~/.kube/config`. If not present, the location is
 |-|-|
 | `kubeswitch` | select context/namespace graphically |  
 | `kubeswitch <namespace>` | switch to namespace in current context quickly |  
-| `kubeswitch <context> <namespace>`<br />`kubeswitch <context>/<namespace>` | switch to context/namespace |
+| `kubeswitch <context> <namespace>` | switch to context/namespace |

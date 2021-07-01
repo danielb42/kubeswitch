@@ -166,21 +166,19 @@ func switchContext(rh contextNamespaceTuple) {
 }
 
 func quickSwitch() {
-	if len(os.Args) == 1 {
-		return
-	}
+	if len(os.Args) == 2 {
+		if !namespaceExists(mergedConfig.CurrentContext, os.Args[1]) {
+			log.Fatalf("namespace %s not found in context %s\n", os.Args[1], mergedConfig.CurrentContext)
+		}
 
-	s := strings.Split(os.Args[1], "/")
-
-	if len(os.Args) == 2 && len(s) == 1 && namespaceExists(mergedConfig.CurrentContext, os.Args[1]) {
 		switchContext(contextNamespaceTuple{mergedConfig.CurrentContext, os.Args[1]})
 	}
 
-	if len(os.Args) == 2 && len(s) == 2 && contextExists(s[0]) && namespaceExists(s[0], s[1]) {
-		switchContext(contextNamespaceTuple{s[0], s[1]})
-	}
+	if len(os.Args) == 3 {
+		if !contextExists(os.Args[1]) || !namespaceExists(os.Args[1], os.Args[2]) {
+			log.Fatalf("namespace %s not found in context %s\n", os.Args[2], os.Args[1])
+		}
 
-	if len(os.Args) == 3 && contextExists(os.Args[1]) && namespaceExists(os.Args[1], os.Args[2]) {
 		switchContext(contextNamespaceTuple{os.Args[1], os.Args[2]})
 	}
 
