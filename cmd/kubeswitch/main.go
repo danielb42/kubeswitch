@@ -172,6 +172,16 @@ func quickSwitch() {
 		}
 
 		switchContext(contextNamespaceTuple{mergedConfig.CurrentContext, os.Args[1]})
+		os.Exit(0)
+	}
+
+	if len(os.Args) == 3 && os.Args[2] == "." {
+		if !contextExists(os.Args[1]) || !namespaceExists(os.Args[1], "default") {
+			log.Fatalf("namespace %s not found in context %s\n", "default", os.Args[1])
+		}
+
+		switchContext(contextNamespaceTuple{os.Args[1], "default"})
+		os.Exit(0)
 	}
 
 	if len(os.Args) == 3 {
@@ -180,9 +190,8 @@ func quickSwitch() {
 		}
 
 		switchContext(contextNamespaceTuple{os.Args[1], os.Args[2]})
+		os.Exit(0)
 	}
-
-	os.Exit(0)
 }
 
 func removeStaleContextConfigs() {
