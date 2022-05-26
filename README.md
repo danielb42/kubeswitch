@@ -22,7 +22,7 @@ Available for Linux and MacOS: [Latest Release](https://github.com/danielb42/kub
 
 ### ... or use go get
 
-`go get github.com/danielb42/kubeswitch/cmd/kubeswitch`
+`go install github.com/danielb42/kubeswitch/cmd/kubeswitch@latest`
 
 ## Config
 

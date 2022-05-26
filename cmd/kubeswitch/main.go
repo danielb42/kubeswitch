@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	corev1 "k8s.io/api/core/v1"
