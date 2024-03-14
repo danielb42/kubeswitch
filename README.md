@@ -16,13 +16,7 @@ kubeswitch talks to the kubernetes API and does not depend on kubectl.
 
 ## Install
 
-### Either download a precompiled binary ...
-
 Available for Linux and MacOS: [Latest Release](https://github.com/danielb42/kubeswitch/releases/latest)
-
-### ... or use go get
-
-`go install github.com/danielb42/kubeswitch/cmd/kubeswitch@latest`
 
 ## Config
 
