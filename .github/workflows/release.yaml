@@ -21,6 +21,8 @@ jobs:
       - run: tar czf kubeswitch_linux_amd64.tar.gz kubeswitch LICENSE README.md
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o kubeswitch
       - run: tar czf kubeswitch_darwin_amd64.tar.gz kubeswitch LICENSE README.md
+      - run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o kubeswitch
+      - run: tar czf kubeswitch_darwin_arm64.tar.gz kubeswitch LICENSE README.md
 
       - id: get_tag_name
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
@@ -33,7 +35,7 @@ jobs:
           tag_name: ${{ steps.get_tag_name.outputs.VERSION }}
           release_name: ${{ steps.get_tag_name.outputs.VERSION }}
 
-      - name: Upload linux asset
+      - name: Upload linux/amd64 asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,7 +45,7 @@ jobs:
           asset_name: kubeswitch_linux_amd64.tar.gz
           asset_content_type: application/gzip
 
-      - name: Upload darwin asset
+      - name: Upload darwin/amd64 asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,4 +53,14 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: kubeswitch_darwin_amd64.tar.gz
           asset_name: kubeswitch_darwin_amd64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload darwin/arm64 asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: kubeswitch_darwin_arm64.tar.gz
+          asset_name: kubeswitch_darwin_arm64.tar.gz
           asset_content_type: application/gzip
